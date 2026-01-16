@@ -756,31 +756,13 @@ async def test_get_provider_models_silicon_with_different_model_types():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_modelengine_get_models_no_env_config():
-    """ModelEngine provider should return empty list when env vars not configured."""
-    # Import ModelEngineProvider
-    from backend.services.model_provider_service import ModelEngineProvider
-
-    provider_config = {"model_type": "llm"}
-
-    with mock.patch("backend.services.model_provider_service.MODEL_ENGINE_HOST", ""), \
-         mock.patch("backend.services.model_provider_service.MODEL_ENGINE_APIKEY", ""):
-
-        result = await ModelEngineProvider().get_models(provider_config)
-
-        assert result == []
-
-
-@pytest.mark.asyncio
 async def test_modelengine_get_models_llm_success():
     """ModelEngine provider should return LLM models with correct type mapping."""
     from backend.services.model_provider_service import ModelEngineProvider
 
-    provider_config = {"model_type": "llm"}
+    provider_config = {"model_type": "llm", "base_url": "https://model-engine.com", "api_key": "test-key"}
 
-    with mock.patch("backend.services.model_provider_service.MODEL_ENGINE_HOST", "https://model-engine.com"), \
-         mock.patch("backend.services.model_provider_service.MODEL_ENGINE_APIKEY", "test-key"), \
-         mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
+    with mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
          mock.patch("backend.services.model_provider_service.aiohttp.ClientTimeout"), \
          mock.patch("backend.services.model_provider_service.aiohttp.TCPConnector"):
 
@@ -825,11 +807,9 @@ async def test_modelengine_get_models_embedding_success():
     """ModelEngine provider should return embedding models with correct type mapping."""
     from backend.services.model_provider_service import ModelEngineProvider
 
-    provider_config = {"model_type": "embedding"}
+    provider_config = {"model_type": "embedding", "base_url": "https://model-engine.com", "api_key": "test-key"}
 
-    with mock.patch("backend.services.model_provider_service.MODEL_ENGINE_HOST", "https://model-engine.com"), \
-         mock.patch("backend.services.model_provider_service.MODEL_ENGINE_APIKEY", "test-key"), \
-         mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
+    with mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
          mock.patch("backend.services.model_provider_service.aiohttp.ClientTimeout"), \
          mock.patch("backend.services.model_provider_service.aiohttp.TCPConnector"):
 
@@ -871,11 +851,9 @@ async def test_modelengine_get_models_all_types():
     """ModelEngine provider should return all models when no type filter specified."""
     from backend.services.model_provider_service import ModelEngineProvider
 
-    provider_config = {}  # No model_type filter
+    provider_config = {"base_url": "https://model-engine.com", "api_key": "test-key"}  # No model_type filter
 
-    with mock.patch("backend.services.model_provider_service.MODEL_ENGINE_HOST", "https://model-engine.com"), \
-         mock.patch("backend.services.model_provider_service.MODEL_ENGINE_APIKEY", "test-key"), \
-         mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
+    with mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session_class, \
          mock.patch("backend.services.model_provider_service.aiohttp.ClientTimeout"), \
          mock.patch("backend.services.model_provider_service.aiohttp.TCPConnector"):
 
@@ -928,9 +906,7 @@ async def test_modelengine_get_models_exception():
 
     provider_config = {"model_type": "llm"}
 
-    with mock.patch("backend.services.model_provider_service.MODEL_ENGINE_HOST", "https://model-engine.com"), \
-         mock.patch("backend.services.model_provider_service.MODEL_ENGINE_APIKEY", "test-key"), \
-         mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session:
+    with mock.patch("backend.services.model_provider_service.aiohttp.ClientSession") as mock_session:
 
         mock_session_instance = mock.AsyncMock()
         mock_session_instance.__aenter__.return_value = mock_session_instance

@@ -167,6 +167,7 @@
   scrollbar-color: rgba(0, 0, 0, 0.4) transparent;
 }
 
+
 /* Tool Pool Tabs scroll fix */
 .tool-pool-tabs .ant-tabs-content-holder {
   overflow: hidden;
@@ -307,21 +308,28 @@
   min-width: 0;
 }
 
-/* Responsive button text - global utility */
-@media (max-width: 1279px) {
-  .button-text-full {
-    display: none !important;
-  }
-  .button-text-short {
-    display: inline !important;
-  }
+.button-text-full {
+  display: inline !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-@media (min-width: 1280px) {
-  .button-text-full {
-    display: inline !important;
-  }
-  .button-text-short {
-    display: none !important;
-  }
+/* Selected table row: draw full-height left stripe inside first cell */
+tr.selected-row > td:first-child {
+  position: relative;
+  z-index: 0;
+}
+tr.selected-row > td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #3b82f6; /* tailwind border-blue-500 */
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 0 4px 4px 0;
 }
