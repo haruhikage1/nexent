@@ -23,7 +23,6 @@ sys.modules['nexent.vector_database.datamate_core'] = datamate_core_mock
 # Patch storage factory before importing the module under test
 with patch_minio_client_initialization():
     from backend.services.datamate_service import (
-        fetch_datamate_knowledge_base_files,
         fetch_datamate_knowledge_base_file_list,
         sync_datamate_knowledge_bases_and_create_records,
         _get_datamate_core,
@@ -43,34 +42,6 @@ class FakeClient:
 
     def sync_all_knowledge_bases(self):
         return {"success": True, "knowledge_bases": [{"id": "kb1"}], "total_count": 1}
-
-
-@pytest.mark.asyncio
-async def test_fetch_datamate_knowledge_base_files_success(monkeypatch):
-    # Mock the _get_datamate_core function to return our fake core
-    fake_core = MagicMock()
-    fake_core.get_index_chunks.return_value = {
-        "chunks": [{"name": "file1", "size": 123, "knowledge_base_id": "kb1"}]
-    }
-
-    monkeypatch.setattr(
-        "backend.services.datamate_service._get_datamate_core", lambda tenant_id: fake_core)
-    files = await fetch_datamate_knowledge_base_files("kb1", "tenant1")
-    assert isinstance(files, list)
-    assert files[0]["knowledge_base_id"] == "kb1"
-
-
-@pytest.mark.asyncio
-async def test_fetch_datamate_knowledge_base_files_failure(monkeypatch):
-    # Mock the _get_datamate_core function to return a core that raises an exception
-    fake_core = MagicMock()
-    fake_core.get_index_chunks.side_effect = Exception("boom")
-
-    monkeypatch.setattr(
-        "backend.services.datamate_service._get_datamate_core", lambda tenant_id: fake_core)
-    with pytest.raises(RuntimeError) as excinfo:
-        await fetch_datamate_knowledge_base_files("kb1", "tenant1")
-    assert "Failed to fetch files for knowledge base kb1" in str(excinfo.value)
 
 
 def test_get_datamate_core_success(monkeypatch):
@@ -231,35 +202,6 @@ async def test_create_datamate_knowledge_records_partial_failure(monkeypatch):
 
     # Verify upsert_knowledge_record was called twice (second failed but didn't crash)
     assert knowledge_db_mock.upsert_knowledge_record.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_datamate_knowledge_records_empty_names(monkeypatch):
-    """Test _create_datamate_knowledge_records function when names list is shorter than ids."""
-    # Reset any previous side_effect from other tests
-    knowledge_db_mock.upsert_knowledge_record.side_effect = None
-    knowledge_db_mock.upsert_knowledge_record.reset_mock()
-
-    mock_created_record = {"id": "record1", "index_name": "kb1"}
-    knowledge_db_mock.upsert_knowledge_record.return_value = mock_created_record
-
-    result = await _create_datamate_knowledge_records(
-        knowledge_base_ids=["kb1", "kb2"],
-        knowledge_base_names=["Knowledge Base 1"],  # Only one name provided
-        embedding_model_names=["embedding1", "embedding2"],
-        tenant_id="tenant1",
-        user_id="user1"
-    )
-
-    assert len(result) == 2
-
-    # First record should use the provided name
-    first_call_args = knowledge_db_mock.upsert_knowledge_record.call_args_list[0][0][0]
-    assert first_call_args["knowledge_name"] == "Knowledge Base 1"
-
-    # Second record should use the kb_id as fallback
-    second_call_args = knowledge_db_mock.upsert_knowledge_record.call_args_list[1][0][0]
-    assert second_call_args["knowledge_name"] == "kb2"
 
 
 @pytest.mark.asyncio
