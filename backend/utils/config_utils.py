@@ -6,11 +6,13 @@ from typing import Dict, Any
 from sqlalchemy.sql import func
 
 from database.model_management_db import get_model_by_model_id
+from database.client import get_db_session
+from database.db_models import TenantConfig
+from sqlalchemy.exc import SQLAlchemyError
 from database.tenant_config_db import (
     delete_config_by_tenant_config_id,
     get_all_configs_by_tenant_id,
     get_single_config_info,
-    insert_config,
     update_config_by_tenant_config_id_and_data,
 )
 
@@ -136,7 +138,28 @@ class TenantConfigManager:
             "create_time": func.current_timestamp(),
         }
 
-        insert_config(insert_data)
+        # Use a single database session for both delete and insert operations
+        with get_db_session() as session:
+            try:
+                # First delete existing config for this key
+                existing_config = get_single_config_info(tenant_id, key)
+                if existing_config:
+                    # Delete using the same session
+                    session.query(TenantConfig).filter(
+                        TenantConfig.tenant_config_id == existing_config["tenant_config_id"],
+                        TenantConfig.delete_flag == "N"
+                    ).update({"delete_flag": "Y", "updated_by": tenant_id})
+
+                # Then insert new config using the same session
+                session.add(TenantConfig(**insert_data))
+                session.commit()
+                logger.info(
+                    f"Configuration {key} set successfully for tenant {tenant_id}")
+            except SQLAlchemyError as e:
+                session.rollback()
+                logger.error(
+                    f"Failed to set config {key} for tenant {tenant_id}: {e}")
+                raise
 
     def delete_single_config(self, tenant_id: str | None = None, key: str | None = None, ):
         """Delete configuration value in database"""

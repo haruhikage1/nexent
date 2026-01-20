@@ -79,7 +79,11 @@ def _get_datamate_core(tenant_id: str) -> DataMateCore:
         DATAMATE_URL, tenant_id=tenant_id)
     if not datamate_url:
         raise ValueError(f"DataMate URL not configured for tenant {tenant_id}")
-    return DataMateCore(base_url=datamate_url)
+
+    # For HTTPS URLs with self-signed certificates, disable SSL verification
+    verify_ssl = not datamate_url.startswith("https://")
+
+    return DataMateCore(base_url=datamate_url, verify_ssl=verify_ssl)
 
 
 async def fetch_datamate_knowledge_base_file_list(knowledge_base_id: str, tenant_id: str) -> Dict[str, Any]:

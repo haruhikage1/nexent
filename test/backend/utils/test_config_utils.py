@@ -1,13 +1,53 @@
 import pytest
 import json
 import sys
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 # Setup common mocks
 from test.common.test_mocks import setup_common_mocks, patch_minio_client_initialization
 
 # Initialize common mocks
 mocks = setup_common_mocks()
+
+# Mock database modules before importing config_utils
+database_client_mock = MagicMock()
+database_client_mock.get_db_session = MagicMock()
+
+database_models_mock = MagicMock()
+database_models_mock.TenantConfig = MagicMock()
+
+database_tenant_config_db_mock = MagicMock()
+database_tenant_config_db_mock.get_all_configs_by_tenant_id = MagicMock()
+database_tenant_config_db_mock.get_single_config_info = MagicMock()
+database_tenant_config_db_mock.insert_config = MagicMock()
+database_tenant_config_db_mock.delete_config_by_tenant_config_id = MagicMock()
+database_tenant_config_db_mock.update_config_by_tenant_config_id_and_data = MagicMock()
+
+database_model_management_db_mock = MagicMock()
+database_model_management_db_mock.get_model_by_model_id = MagicMock()
+
+# Mock sqlalchemy
+sqlalchemy_mock = MagicMock()
+sqlalchemy_exc_mock = MagicMock()
+sqlalchemy_exc_mock.SQLAlchemyError = Exception
+sqlalchemy_sql_mock = MagicMock()
+sqlalchemy_sql_mock.func = MagicMock()
+
+sqlalchemy_mock.exc = sqlalchemy_exc_mock
+sqlalchemy_mock.sql = sqlalchemy_sql_mock
+
+# Mock consts
+consts_mock = MagicMock()
+
+# Set up sys.modules mocks
+sys.modules['database.client'] = database_client_mock
+sys.modules['database.db_models'] = database_models_mock
+sys.modules['database.tenant_config_db'] = database_tenant_config_db_mock
+sys.modules['database.model_management_db'] = database_model_management_db_mock
+sys.modules['sqlalchemy'] = sqlalchemy_mock
+sys.modules['sqlalchemy.exc'] = sqlalchemy_exc_mock
+sys.modules['sqlalchemy.sql'] = sqlalchemy_sql_mock
+sys.modules['consts.const'] = consts_mock
 
 # Patch storage factory before importing
 with patch_minio_client_initialization():
@@ -215,17 +255,23 @@ class TestTenantConfigManager:
         result = config_manager.get_app_config("key")
         assert result == ""
 
-    @patch('backend.utils.config_utils.insert_config')
-    @patch('backend.utils.config_utils.get_all_configs_by_tenant_id')
-    def test_set_single_config_success(self, mock_get_configs, mock_insert, config_manager):
+    @patch('backend.utils.config_utils.get_single_config_info')
+    @patch('backend.utils.config_utils.get_db_session')
+    def test_set_single_config_success(self, mock_session, mock_get_single, config_manager):
         """Test successful single config setting"""
-        mock_get_configs.return_value = []
+        # Mock the database session
+        mock_session_instance = mock_session.return_value.__enter__.return_value
+        mock_get_single.return_value = {
+            "tenant_config_id": 1}  # Existing config to delete
 
         config_manager.set_single_config("user1", "tenant1", "key1", "value1")
 
-        mock_insert.assert_called_once()
-        # No in-process cache to clear; ensure no cache attribute
-        assert not hasattr(config_manager, "config_cache")
+        # Verify delete was called on the existing config
+        mock_session_instance.query.return_value.filter.return_value.update.assert_called_once()
+        # Verify new config was added
+        mock_session_instance.add.assert_called_once()
+        # Verify commit was called
+        mock_session_instance.commit.assert_called_once()
 
     def test_set_single_config_no_tenant_id(self, config_manager):
         """Test setting config without tenant ID"""
